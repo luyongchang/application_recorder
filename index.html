@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <!-- import CSS -->
+    <!-- <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css"> -->
+    <link rel="stylesheet" href="./index.css">
+</head>
+
+<body>
+    <div id="app" style="padding: 20px;">
+        <h3>秋招投递记录</h3>
+
+        <el-tabs v-model="activeName">
+            <el-tab-pane label="日程" name="first">
+                <el-calendar :date="new Date()" :fullscreen="true">
+                    <template slot="dateCell" slot-scope="{date, data}" style="overflow: hidden;">
+                        <!-- 同一天可能有多个日程，点击日期后弹窗展示详细日程信息 -->
+                        <div>{{date.getDate()}}</div>
+                        <div v-for="(item, index) in canlendarData"
+                            v-if="item.date.split(' ')[0] == date.toISOString().split('T')[0] && item.statusName!='简历投递' && !item.statusName.includes('挂')"
+                            :key="item.name + index"
+                            style="margin-bottom: 5px; padding: 2px; border: 1px solid #dcdfe6; border-radius: 4px; cursor: pointer;"
+                            :class="getDateClass(date, item.statusName)" @click="showJourney(date)">
+                            <i class="el-icon-time"></i>
+                            <span style="margin-left: 5px; font-weight: bold;">{{ item.name }}</span>
+                            <span style="margin-left: 5px;">- {{ item.job }}</span>
+                            <span style="margin-left: 5px; ">({{ item.statusName }})</span>
+                    </template>
+                </el-calendar>
+            </el-tab-pane>
+
+            <el-tab-pane label="投递列表" name="second">
+                <el-button @click="dialogFormVisible = true">新增数据</el-button>
+                <el-button @click="copyTableData">复制Json数据</el-button>
+                <br />
+                <el-table :data="tableData" style="width: 100%" stripe>
+                    <!-- 下标 + 1 -->
+                    <el-table-column prop="id" label="序号" width="50">
+                        <template slot-scope="scope">
+                            {{ scope.$index + 1 }}
+                        </template>
+                    </el-table-column>
+                    <el-table-column prop="date" label="日期" width="180" sortable>
+                    </el-table-column>
+                    <el-table-column prop="name" label="公司名称" width="180" class-name="boldCell">
+                    </el-table-column>
+                    <el-table-column prop="job" label="投递岗位" width="180">
+                    </el-table-column>
+                    <el-table-column prop="address" label="链接">
+                        <template slot-scope="scope">
+                            <a :href="scope.row.address" target="_blank">{{ scope.row.address }}</a>
+                        </template>
+                    </el-table-column>
+                    <el-table-column prop="currentStatus" label="当前状态">
+                        <template slot-scope="scope">
+                            <i class="el-icon-time"></i>
+                            <span style="margin-left: 10px">{{ scope.row.currentStatus.statusName + ' ' +
+                                scope.row.currentStatus.date }}</span>
+                        </template>
+                    </el-table-column>
+                    <el-table-column label="操作">
+                        <template slot-scope="scope">
+                            <el-button type="text" size="mini"
+                                @click="showHistory(scope.$index, scope.row)">查看历史记录</el-button>
+                            <!-- 修改按钮 -->
+                            <el-button type="text" size="mini" @click="editRow(scope.$index, scope.row)">修改</el-button>
+                        </template>
+                    </el-table-column>
+                </el-table>
+
+            </el-tab-pane>
+        </el-tabs>
+
+        <el-dialog width="60%" :visible.sync="dialogFormVisible" :title="isEditing?'修改记录':'新增记录'"
+            :close-on-click-modal="false">
+            <el-form :model="form">
+                <!-- 增加时间选择器 -->
+                <el-form-item label="日期" :label-width="formLabelWidth" format="yyyy-MM-dd">
+                    <el-date-picker v-model="form.date" type="date" placeholder="选择日期">
+                    </el-date-picker>
+                </el-form-item>
+                <el-form-item label="公司名称" :label-width="formLabelWidth">
+                    <el-input v-model="form.name" autocomplete="off"></el-input>
+                </el-form-item>
+                <el-form-item label="链接" :label-width="formLabelWidth">
+                    <el-input v-model="form.address" autocomplete="off"></el-input>
+                </el-form-item>
+                <!-- 增加投递志愿字段,点击按钮可新增或删除志愿 -->
+                <div>
+                    <div>
+                        <el-button v-if="!isEditing" type="primary" @click="addJobs">添加志愿</el-button>
+                    </div>
+                    <br />
+                    <el-form-item :label="'投递志愿 ' + (index + 1)" :label-width="formLabelWidth"
+                        v-for="(job, index) in form.jobs">
+                        <el-select v-model="job.name" placeholder="请选择" allow-create filterable>
+                            <el-option label="后端开发" value="后端开发"></el-option>
+                            <el-option label="AI开发工程师" value="AI开发工程师"></el-option>
+                            <el-option label="服务端开发工程师" value="服务端开发工程师"></el-option>
+                            <el-option label="Java开发工程师" value="Java开发工程师"></el-option>
+                            <el-option label="软件工程师" value="软件工程师"></el-option>
+                            <el-option label="研发工程师" value="研发工程师"></el-option>
+                            <el-option label="全栈工程师" value="全栈工程师"></el-option>
+                        </el-select>
+
+                        <!-- 当前状态名称和时间 -->
+                        <el-select v-model="form.currentStatus.statusName" placeholder="状态">
+                            <el-option v-for="item in form.statusHistory" :key="item.statusName"
+                                :label="item.statusName" :value="item.statusName">
+                            </el-option>
+                        </el-select>
+
+                        <el-date-picker v-model="form.currentStatus.date" type="datetime" placeholder="状态日期"
+                            style="margin-left: 10px;">
+                        </el-date-picker>
+
+
+                        <!-- 使用内置会话框新增一个新的状态记录 -->
+                        <el-button type="text" @click="innerVisible = true" style="margin-left: 10px;">新增状态</el-button>
+
+                        <!-- 增加状态日期时间 -->
+
+                        <el-dialog width="30%" title="内层 Dialog" :visible.sync="innerVisible" append-to-body>
+                            <div>
+                                <el-select v-model="newStatus.statusName" placeholder="新增状态" style="margin-left: 10px;"
+                                    allow-create filterable>
+                                    <el-option v-for="item in statusList" :key="item" :label="item" :value="item">
+                                    </el-option>
+                                </el-select>
+                                <el-date-picker v-model="newStatus.date" type="datetime" placeholder="状态日期"
+                                    style="margin-left: 10px;">
+                                </el-date-picker>
+                            </div>
+
+                            <div slot="footer" class="dialog-footer">
+                                <el-button @click="innerVisible = false">取 消</el-button>
+                                <el-button type="primary" @click="addStatus()">确 定</el-button>
+                            </div>
+                        </el-dialog>
+
+                    </el-form-item>
+
+
+                </div>
+            </el-form>
+            <div slot="footer" class="dialog-footer">
+                <el-button @click="dialogFormVisible = false">取 消</el-button>
+                <el-button type="primary" @click="post">确 定</el-button>
+            </div>
+        </el-dialog>
+        <el-dialog title="历史记录" :visible.sync="historyDialogVisible">
+            <el-timeline>
+                <!-- 最后一个状态且为挂的话红色，否则绿色 -->
+                <el-timeline-item v-for="(status, index) in historyDialogData" :key="index" :timestamp="status.date"
+                    :color="(status.statusName.includes('挂') && index == historyDialogData.length - 1) ? 'red':'#0bbd87'">
+                    {{status.statusName}}
+                </el-timeline-item>
+            </el-timeline>
+        </el-dialog>
+        <el-dialog title="日程信息" :visible.sync="journeyDialogVisible">
+            <h3>当日日程 ({{currentDate.toLocaleDateString()}})</h3>
+            <div v-for="(item, index) in canlendarData" :key="item.name + index" style="margin-bottom: 10px;"
+                v-if="item.date.split(' ')[0] == currentDate.toISOString().split('T')[0]">
+                <h4>{{ item.name }} - {{ item.job }} - {{item.date}}</h4>
+                <p>状态: {{ item.statusName }}</p>
+                <p>链接: <a :href="item.address" target="_blank">{{ item.address }}</a></p>
+                <hr />
+            </div>
+            <div slot="footer" class="dialog-footer">
+                <el-button @click="journeyDialogVisible = false">关 闭</el-button>
+            </div>
+        </el-dialog>
+
+    </div>
+</body>
+<!-- import Vue before Element -->
+<!-- <script src="https://unpkg.com/vue@2/dist/vue.js"></script> -->
+<script src="./vue.js"></script>
+<!-- import JavaScript -->
+<!-- <script src="https://unpkg.com/element-ui/lib/index.js"></script> -->
+<script src="./index.js"></script>
+<script src="./data.js"></script>
+<script>
+    var json =
+        [{ "id": 1, "date": "2025-08-11", "name": "大疆", "job": "后端开发", "address": "https://we.dji.com/zh-CN/position/process", "statusHistory": [{ "statusName": "简历投递", "date": "2024-08-11" }, { "statusName": "一面", "date": "2024-08-20" }, { "statusName": "二面", "date": "2024-08-25" }, { "statusName": "三面", "date": "2024-08-30" }, { "statusName": "HR面", "date": "2024-09-05" }, { "statusName": "Offer", "date": "2024-09-10" }], "currentStatus": { "statusName": "Offer", "date": "2024-09-10" } }, { "id": 2, "date": "2025-08-17", "name": "虾皮", "job": "后端开发", "address": "", "statusHistory": [{ "statusName": "简历投递", "date": "2025-08-17" }], "currentStatus": { "statusName": "简历投递", "date": "2025-08-17" } }, { "id": 3, "date": "2025-08-17", "name": "小马智行", "job": "研发工程师", "address": "https://ponyai.jobs.feishu.cn/ponycampus/position/application", "statusHistory": [{ "statusName": "简历投递", "date": "2025-08-17" }], "currentStatus": { "statusName": "简历投递", "date": "2025-08-17" } }, { "id": 4, "date": "2025-08-19", "name": "招联", "job": "AI开发工程师", "address": "AI开发工程师", "statusHistory": [{ "statusName": "简历投递", "date": "2025-08-19" }], "currentStatus": { "statusName": "简历投递", "date": "2025-08-19" }, "jobs": [{ "name": "AI开发工程师" }] }, { "id": 5, "date": "2025-08-19", "name": "OPPO", "job": "后端工程师", "address": "https://careers.oppo.com/university/oppo/center/history", "statusHistory": [{ "statusName": "简历投递", "date": "2025-08-18" }], "currentStatus": { "statusName": "简历投递", "date": "2025-08-18" }, "jobs": [{ "name": "后端工程师" }] }, { "id": 6, "date": "2025-08-19", "name": "韶音科技", "job": "IT软件开发", "address": "", "statusHistory": [{ "statusName": "简历投递", "date": "2025-08-18" }], "currentStatus": { "statusName": "简历投递", "date": "2025-08-18" }, "jobs": [{ "name": "IT软件开发" }] }, { "id": 7, "date": "2025-08-19", "name": "文远知行", "job": "研发工程师", "address": "https://app.mokahr.com/campus_apply/jingchi/2137#/candidateHome/applications", "statusHistory": [{ "statusName": "简历投递", "date": "2025-08-18" }, { "statusName": "笔试", "date": "2025-08-31 19:00:00" }], "currentStatus": { "statusName": "笔试", "date": "2025-08-31 19:00:00" }, "jobs": [{ "name": "研发工程师" }] }, { "id": 8, "date": "2025-08-20", "name": "荣耀", "job": "通用软件工程师", "address": "https://career.honor.com/SU60eea919bef57c1023f6fe78/pb/index.html#/", "statusHistory": [{ "statusName": "简历投递", "date": "2025-08-20" }], "currentStatus": { "statusName": "简历投递", "date": "2025-08-20" } }]
+
+</script>
+<script>
+    new Vue({
+        el: '#app',
+        data: function () {
+            return {
+                activeName: 'first',
+                canlendarData: [{ date: '2025-08-11', name: '大疆', job: '后端开发', address: 'https://we.dji.com/zh-CN/position/process' }],
+                dialogFormVisible: false,
+                journeyDialogVisible: false,
+                innerVisible: false,
+                historyDialogVisible: false,
+                historyDialogData: [],
+                isEditing: false,
+                currentIndex: -1,
+                formLabelWidth: "80",
+                labelWidth: "80",
+                currentDate: new Date(),
+                statusList: ['投递简历', '测评', '笔试', '一面', '二面', '三面', 'HR面', 'Offer', '挂了'],
+                form: { date: '', name: '', jobs: [{ name: '' }], address: '', statusHistory: [{ statusName: '', date: '' }], currentStatus: { statusName: '', date: '' } },
+                newStatus: { statusName: '', date: '' },
+                tableData: [{
+                    id: '',
+                    date: '2025-08-11',
+                    name: '大疆',
+                    job: '后端开发',
+                    address: 'https://we.dji.com/zh-CN/position/process',
+                    statusHistory: [{ statusName: '简历投递', date: '2025-08-11' }],
+                    currentStatus: { statusName: '简历投递', date: '2025-08-11' }
+                }],
+            }
+        },
+        // 创建时读取json到tableData
+        created() {
+            // 从LocalStorage读取数据
+            if (localStorage.getItem('tableData')) {
+                this.tableData = JSON.parse(localStorage.getItem('tableData'));
+                //this.renderJourney();
+            } else {
+                this.loadData();
+            }
+
+        },
+
+        mounted() {
+        },
+        methods: {
+            // 每次tableData变化时，保存到LocalStorage，并且调用renderJourney渲染日历
+            loadData() {
+                this.tableData = JSON.parse(JSON.stringify(window.myJsonData));
+                console.log(this.tableData);
+                // 设置每条记录的id为索引值+1
+                this.tableData.forEach((item, index) => {
+                    item.id = index + 1;
+                    // 设置每条记录的currentStatus为statusHistory的最后一条记录
+                    if (item.statusHistory && item.statusHistory.length > 0) {
+                        item.currentStatus = item.statusHistory[item.statusHistory.length - 1];
+                    } else {
+                        item.currentStatus = { statusName: '', date: '' };
+                    }
+                });
+                //this.renderJourney();
+            },
+            // 根据this.tableData数组中的日期，把任务渲染到日历上
+            renderJourney() {
+                this.canlendarData = [];
+                this.tableData.forEach((item) => {
+                    // 把statusHistory中的每个状态也渲染到日历上
+                    item.statusHistory.forEach((status) => {
+                        if (!['面', '测评', '笔试', '挂'].some(s => status.statusName.includes(s))) {
+                            return;
+                        }
+                        this.canlendarData.push({
+                            date: status.date,
+                            name: item.name,
+                            job: item.job,
+                            statusName: status.statusName,
+                            address: item.address
+                        });
+                    });
+                })
+
+                this.canlendarData.sort((a, b) => new Date(a.date) - new Date(b.date));
+                //console.log(this.canlendarData);
+            },
+            showJourney(date) {
+                console.log(date);
+                this.currentDate = date;
+                this.journeyDialogVisible = true;
+            },
+            add() {
+                console.log(this.form);
+
+                // 新增, 每个job生成一条记录，过滤掉name为空的job
+
+                let newDate = this.formateDate(this.form.date);
+                let startStatus = this.form.currentStatus.statusName ? { statusName: this.form.currentStatus.statusName, date: this.form.currentStatus.date.toLocaleString() } : { statusName: '简历投递', date: newDate }
+                this.form.jobs.forEach((job) => {
+                    if (job.name) {
+                        const newRecord = {
+                            id: this.tableData.length + 1,
+                            date: newDate,
+                            name: this.form.name,
+                            job: job.name,
+                            address: this.form.address,
+                            statusHistory: [startStatus],
+                            // currentStatus为空则默认状态为简历投递，时间为date
+                            currentStatus: startStatus
+                        };
+                        this.tableData.push(newRecord);
+                    }
+                });
+            },
+            post() {
+                // 根据isEditing判断是新增还是修改
+                if (!this.isEditing) {
+                    this.add();
+                } else {
+                    console.log(this.form.date);
+                    this.edit();
+                    this.isEditing = false;
+                }
+                this.dialogFormVisible = false;
+
+            },
+            edit() {
+                console.log(this.form.date);
+                this.form.date = this.formateDate(this.form.date);
+                // 用currentStatus的statusName和date更新statusHistory中对应的记录
+                const statusIndex = this.form.statusHistory.findIndex(item => item.statusName === this.form.currentStatus.statusName);
+                let newDate = new Date(this.form.currentStatus.date).toISOString().split('T')[0];
+                console.log(newDate);
+                let isAddStatus = false;
+                // 不是投递简历状态则增加时间
+                if (this.form.currentStatus.statusName !== '简历投递') {
+                    isAddStatus = true;
+                    newDate += ' ' + new Date(this.form.currentStatus.date).toTimeString().split(' ')[0]
+                }
+                if (statusIndex !== -1) {
+                    this.form.statusHistory[statusIndex].date = newDate;
+                } else {
+                    this.form.statusHistory.push({ statusName: this.form.currentStatus.statusName, date: newDate });
+                }
+                this.form.job = this.form.jobs[0].name;
+                // currentStatus为statusHistory的最后一条记录
+                this.form.currentStatus = this.form.statusHistory[this.form.statusHistory.length - 1];
+                // 替换tableData中对应的记录
+                this.$set(this.tableData, this.currentIndex, JSON.parse(JSON.stringify(this.form)));
+                if (isAddStatus)
+                    this.form = { date: '', name: '', jobs: [{ name: '' }], address: '', statusHistory: [{ statusName: '', date: '' }], currentStatus: { statusName: '', date: '' } }
+
+            },
+            addJobs() {
+                this.form.jobs.push({ name: '' });
+            },
+            copyTableData() {
+                // 保存一份数据到LocalStorage
+                localStorage.setItem('tableData', JSON.stringify(this.tableData));
+                const dataStr = JSON.stringify(this.tableData, null, 2);
+                navigator.clipboard.writeText(dataStr).then(() => {
+                    this.$message({
+                        message: '数据已复制到剪贴板',
+                        type: 'success'
+                    });
+                }, () => {
+                    this.$message({
+                        message: '复制失败，请手动复制',
+                        type: 'error'
+                    });
+                });
+            },
+            addStatus() {
+                // 往 this.form.statusHistory中新增一条记录,如果第一条记录的statusName为空则替换第一个
+                if (this.form.statusHistory.length == 1 && !this.form.statusHistory[0].statusName)
+                    this.form.statusHistory.shift()
+
+                this.form.statusHistory.push({ statusName: this.newStatus.statusName, date: this.newStatus.date })
+                // 设置当前状态为最后一条记录
+                this.form.currentStatus = this.form.statusHistory[this.form.statusHistory.length - 1];
+                this.innerVisible = false;
+                // 重置form
+            },
+            showHistory(index, row) {
+                console.log(index, row);
+                this.historyDialogData = row.statusHistory;
+                this.historyDialogVisible = true;
+            },
+            editRow(index, row) {
+                this.currentIndex = index;
+                this.isEditing = true;
+                this.form = JSON.parse(JSON.stringify(row));
+                // 转换date和currentStatus.date为Date对象
+                this.form.jobs = [{ name: row.job }];
+                this.dialogFormVisible = true;
+            },
+            // 提取年月日
+            formateDate(datetime) {
+                // 创建一个新的Date对象，使用传入的dateTime作为参数（dateTime应该是一个可以解析为日期的字符串或时间戳）  
+                const date = new Date(datetime)
+
+                // 获取年份（四位数）  
+                const year = date.getFullYear()
+
+                // 获取月份（从0开始，所以需要+1），然后使用padStart方法确保月份总是两位数，不足两位时前面补0  
+                const month = String(date.getMonth() + 1).padStart(2, '0')
+
+                // 获取日期（一个月中的第几天），同样使用padStart方法确保日期总是两位数  
+                const day = String(date.getDate()).padStart(2, '0')
+
+                // 使用模板字符串将年份、月份和日期组合成一个形如"YYYY-MM-DD"的字符串，并返回  
+                return `${year}-${month}-${day}`
+
+            },
+            getDateClass(date, statusName) {
+                if (new Date(date.toDateString()) <= new Date(new Date().toDateString())) {
+                    return '';
+                }
+                if (statusName.endsWith('面')) {
+                    return 'is-interview';
+                } else if (statusName.includes('测评') || statusName.includes('笔试')) {
+                    return 'is-test';
+                } else {
+                    return '';
+                }
+            }
+        },
+        // 监视tableData的变化, 每次变化时保存到LocalStorage，并且调用renderJourney渲染日历
+        watch: {
+            tableData: {
+                handler() {
+                    localStorage.setItem('tableData', JSON.stringify(this.tableData));
+                    this.renderJourney();
+                },
+                deep: true
+            }
+        }
+
+    })
+
+</script>
+
+<style>
+    .is-interview {
+        background-color: #67C23A;
+        color: white;
+    }
+
+    .is-test {
+        background-color: #E6A23C;
+        color: white;
+    }
+
+    .el-calendar-day {
+        height: 100% !important;
+        min-height: 65px;
+    }
+
+    .boldCell {
+        font-weight: bold !important;
+    }
+</style>
+
+
+</html>
