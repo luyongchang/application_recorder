@@ -9,7 +9,7 @@
 </head>
 
 <body>
-    <div id="app" style="padding: 20px;">
+    <div id="app" style="padding: 20px;" hidden>
         <h3>秋招投递记录</h3>
 
         <el-tabs v-model="activeName">
@@ -34,8 +34,9 @@
             <el-tab-pane label="投递列表" name="second">
                 <el-button @click="dialogFormVisible = true">新增数据</el-button>
                 <el-button @click="copyTableData">复制Json数据</el-button>
+                
                 <br />
-                <el-table :data="tableData" style="width: 100%" stripe>
+                <el-table :data="pagedTableData" style="width: 100%" stripe>
                     <!-- 下标 + 1 -->
                     <el-table-column prop="id" label="序号" width="50">
                         <template slot-scope="scope">
@@ -69,6 +70,12 @@
                         </template>
                     </el-table-column>
                 </el-table>
+
+                <!-- 分页器,点击页码改变当前显示的tableData, 可调整每页条数-->
+                <el-pagination style="margin-top: 20px;" background layout="prev, pager, next, sizes"
+                    :page-sizes="[5, 10, 20, 50]" :page-size="pageSize" :current-page.sync="currentPage"
+                    :total="tableData.length" @size-change="pageSize = $event; loadPagedData()"
+                    @current-change="loadPagedData">
 
             </el-tab-pane>
         </el-tabs>
@@ -172,7 +179,7 @@
                 <el-button @click="journeyDialogVisible = false">关 闭</el-button>
             </div>
         </el-dialog>
-
+        <el-backtop :visibility-height="200" :right="50" :bottom="50" />
     </div>
 </body>
 <!-- import Vue before Element -->
@@ -182,11 +189,6 @@
 <!-- <script src="https://unpkg.com/element-ui/lib/index.js"></script> -->
 <script src="./index.js"></script>
 <script src="./data.js"></script>
-<script>
-    var json =
-        [{ "id": 1, "date": "2025-08-11", "name": "大疆", "job": "后端开发", "address": "https://we.dji.com/zh-CN/position/process", "statusHistory": [{ "statusName": "简历投递", "date": "2024-08-11" }, { "statusName": "一面", "date": "2024-08-20" }, { "statusName": "二面", "date": "2024-08-25" }, { "statusName": "三面", "date": "2024-08-30" }, { "statusName": "HR面", "date": "2024-09-05" }, { "statusName": "Offer", "date": "2024-09-10" }], "currentStatus": { "statusName": "Offer", "date": "2024-09-10" } }, { "id": 2, "date": "2025-08-17", "name": "虾皮", "job": "后端开发", "address": "", "statusHistory": [{ "statusName": "简历投递", "date": "2025-08-17" }], "currentStatus": { "statusName": "简历投递", "date": "2025-08-17" } }, { "id": 3, "date": "2025-08-17", "name": "小马智行", "job": "研发工程师", "address": "https://ponyai.jobs.feishu.cn/ponycampus/position/application", "statusHistory": [{ "statusName": "简历投递", "date": "2025-08-17" }], "currentStatus": { "statusName": "简历投递", "date": "2025-08-17" } }, { "id": 4, "date": "2025-08-19", "name": "招联", "job": "AI开发工程师", "address": "AI开发工程师", "statusHistory": [{ "statusName": "简历投递", "date": "2025-08-19" }], "currentStatus": { "statusName": "简历投递", "date": "2025-08-19" }, "jobs": [{ "name": "AI开发工程师" }] }, { "id": 5, "date": "2025-08-19", "name": "OPPO", "job": "后端工程师", "address": "https://careers.oppo.com/university/oppo/center/history", "statusHistory": [{ "statusName": "简历投递", "date": "2025-08-18" }], "currentStatus": { "statusName": "简历投递", "date": "2025-08-18" }, "jobs": [{ "name": "后端工程师" }] }, { "id": 6, "date": "2025-08-19", "name": "韶音科技", "job": "IT软件开发", "address": "", "statusHistory": [{ "statusName": "简历投递", "date": "2025-08-18" }], "currentStatus": { "statusName": "简历投递", "date": "2025-08-18" }, "jobs": [{ "name": "IT软件开发" }] }, { "id": 7, "date": "2025-08-19", "name": "文远知行", "job": "研发工程师", "address": "https://app.mokahr.com/campus_apply/jingchi/2137#/candidateHome/applications", "statusHistory": [{ "statusName": "简历投递", "date": "2025-08-18" }, { "statusName": "笔试", "date": "2025-08-31 19:00:00" }], "currentStatus": { "statusName": "笔试", "date": "2025-08-31 19:00:00" }, "jobs": [{ "name": "研发工程师" }] }, { "id": 8, "date": "2025-08-20", "name": "荣耀", "job": "通用软件工程师", "address": "https://career.honor.com/SU60eea919bef57c1023f6fe78/pb/index.html#/", "statusHistory": [{ "statusName": "简历投递", "date": "2025-08-20" }], "currentStatus": { "statusName": "简历投递", "date": "2025-08-20" } }]
-
-</script>
 <script>
     new Vue({
         el: '#app',
@@ -216,6 +218,9 @@
                     statusHistory: [{ statusName: '简历投递', date: '2025-08-11' }],
                     currentStatus: { statusName: '简历投递', date: '2025-08-11' }
                 }],
+                pagedTableData: [],
+                currentPage: 1,
+                pageSize: 10
             }
         },
         // 创建时读取json到tableData
@@ -223,11 +228,10 @@
             // 从LocalStorage读取数据
             if (localStorage.getItem('tableData')) {
                 this.tableData = JSON.parse(localStorage.getItem('tableData'));
-                //this.renderJourney();
             } else {
                 this.loadData();
             }
-
+            document.getElementById('app').removeAttribute('hidden');
         },
 
         mounted() {
@@ -249,13 +253,18 @@
                 });
                 //this.renderJourney();
             },
+            loadPagedData() {
+                const start = (this.currentPage - 1) * this.pageSize;
+                const end = start + this.pageSize;
+                this.pagedTableData = this.tableData.slice(start, end);
+            },
             // 根据this.tableData数组中的日期，把任务渲染到日历上
             renderJourney() {
                 this.canlendarData = [];
                 this.tableData.forEach((item) => {
                     // 把statusHistory中的每个状态也渲染到日历上
                     item.statusHistory.forEach((status) => {
-                        if (!['面', '测评', '笔试', '挂'].some(s => status.statusName.includes(s))) {
+                        if (!['面', '测评', '笔试'].some(s => status.statusName.includes(s) && !status.statusName.includes('挂'))) {
                             return;
                         }
                         this.canlendarData.push({
@@ -312,12 +321,10 @@
 
             },
             edit() {
-                console.log(this.form.date);
                 this.form.date = this.formateDate(this.form.date);
                 // 用currentStatus的statusName和date更新statusHistory中对应的记录
                 const statusIndex = this.form.statusHistory.findIndex(item => item.statusName === this.form.currentStatus.statusName);
                 let newDate = new Date(this.form.currentStatus.date).toISOString().split('T')[0];
-                console.log(newDate);
                 let isAddStatus = false;
                 // 不是投递简历状态则增加时间
                 if (this.form.currentStatus.statusName !== '简历投递') {
@@ -332,8 +339,12 @@
                 this.form.job = this.form.jobs[0].name;
                 // currentStatus为statusHistory的最后一条记录
                 this.form.currentStatus = this.form.statusHistory[this.form.statusHistory.length - 1];
-                // 替换tableData中对应的记录
-                this.$set(this.tableData, this.currentIndex, JSON.parse(JSON.stringify(this.form)));
+                // 找到tableData中对应id字段和form内容里id字段相等的记录并更新
+                const index = this.tableData.findIndex(item => item.id === this.form.id);
+                if (index !== -1) {
+                    this.$set(this.tableData, index, JSON.parse(JSON.stringify(this.form)));
+                }
+
                 if (isAddStatus)
                     this.form = { date: '', name: '', jobs: [{ name: '' }], address: '', statusHistory: [{ statusName: '', date: '' }], currentStatus: { statusName: '', date: '' } }
 
@@ -418,6 +429,7 @@
                 handler() {
                     localStorage.setItem('tableData', JSON.stringify(this.tableData));
                     this.renderJourney();
+                    this.loadPagedData();
                 },
                 deep: true
             }
