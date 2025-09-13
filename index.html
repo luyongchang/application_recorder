@@ -37,11 +37,7 @@
                 
                 <br />
                 <el-table :data="pagedTableData" style="width: 100%" stripe>
-                    <!-- 下标 + 1 -->
                     <el-table-column prop="id" label="序号" width="50">
-                        <template slot-scope="scope">
-                            {{ scope.$index + 1 }}
-                        </template>
                     </el-table-column>
                     <el-table-column prop="date" label="日期" width="180" sortable>
                     </el-table-column>
@@ -148,8 +144,6 @@
                         </el-dialog>
 
                     </el-form-item>
-
-
                 </div>
             </el-form>
             <div slot="footer" class="dialog-footer">
@@ -202,7 +196,6 @@
                 historyDialogVisible: false,
                 historyDialogData: [],
                 isEditing: false,
-                currentIndex: -1,
                 formLabelWidth: "80",
                 labelWidth: "80",
                 currentDate: new Date(),
@@ -385,7 +378,6 @@
                 this.historyDialogVisible = true;
             },
             editRow(index, row) {
-                this.currentIndex = index;
                 this.isEditing = true;
                 this.form = JSON.parse(JSON.stringify(row));
                 // 转换date和currentStatus.date为Date对象
@@ -396,14 +388,9 @@
             formateDate(datetime) {
                 // 创建一个新的Date对象，使用传入的dateTime作为参数（dateTime应该是一个可以解析为日期的字符串或时间戳）  
                 const date = new Date(datetime)
-
-                // 获取年份（四位数）  
+ 
                 const year = date.getFullYear()
-
-                // 获取月份（从0开始，所以需要+1），然后使用padStart方法确保月份总是两位数，不足两位时前面补0  
                 const month = String(date.getMonth() + 1).padStart(2, '0')
-
-                // 获取日期（一个月中的第几天），同样使用padStart方法确保日期总是两位数  
                 const day = String(date.getDate()).padStart(2, '0')
 
                 // 使用模板字符串将年份、月份和日期组合成一个形如"YYYY-MM-DD"的字符串，并返回  
