@@ -34,7 +34,7 @@
             <el-tab-pane label="投递列表" name="second">
                 <el-button @click="dialogFormVisible = true">新增数据</el-button>
                 <el-button @click="copyTableData">复制Json数据</el-button>
-                
+
                 <br />
                 <el-table :data="pagedTableData" style="width: 100%" stripe>
                     <el-table-column prop="id" label="序号" width="50">
@@ -58,6 +58,10 @@
                         </template>
                     </el-table-column>
                     <el-table-column label="操作">
+                        <!-- 搜索 -->
+                        <template slot="header" slot-scope="scope">
+                            <el-input v-model="search" size="mini" @input="loadPagedData()" placeholder="输入关键字搜索" />
+                        </template>
                         <template slot-scope="scope">
                             <el-button type="text" size="mini"
                                 @click="showHistory(scope.$index, scope.row)">查看历史记录</el-button>
@@ -213,7 +217,8 @@
                 }],
                 pagedTableData: [],
                 currentPage: 1,
-                pageSize: 10
+                pageSize: 10,
+                search: ''
             }
         },
         // 创建时读取json到tableData
@@ -249,7 +254,18 @@
             loadPagedData() {
                 const start = (this.currentPage - 1) * this.pageSize;
                 const end = start + this.pageSize;
-                this.pagedTableData = this.tableData.slice(start, end);
+                if (this.search) {
+                    const filteredData = this.tableData.filter(item =>
+                        item.name.includes(this.search) ||
+                        item.job.includes(this.search) ||
+                        item.address.includes(this.search) ||
+                        item.currentStatus.statusName.includes(this.search) ||
+                        item.statusHistory.some(status => status.statusName.includes(this.search))
+                    );
+                    this.pagedTableData = filteredData.slice(start, end);
+                } else {
+                    this.pagedTableData = this.tableData.slice(start, end);
+                }
             },
             // 根据this.tableData数组中的日期，把任务渲染到日历上
             renderJourney() {
@@ -388,7 +404,7 @@
             formateDate(datetime) {
                 // 创建一个新的Date对象，使用传入的dateTime作为参数（dateTime应该是一个可以解析为日期的字符串或时间戳）  
                 const date = new Date(datetime)
- 
+
                 const year = date.getFullYear()
                 const month = String(date.getMonth() + 1).padStart(2, '0')
                 const day = String(date.getDate()).padStart(2, '0')
