@@ -72,7 +72,7 @@
                 </el-table>
 
                 <!-- 分页器,点击页码改变当前显示的tableData, 可调整每页条数-->
-                <el-pagination style="margin-top: 20px;" background layout="prev, pager, next, sizes"
+                <el-pagination ref="pagination" style="margin-top: 20px;" background layout="prev, pager, next, sizes"
                     :page-sizes="[5, 10, 20, 50]" :page-size="pageSize" :current-page.sync="currentPage"
                     :total="tableData.length" @size-change="pageSize = $event; loadPagedData()"
                     @current-change="loadPagedData">
@@ -263,6 +263,10 @@
                         item.statusHistory.some(status => status.statusName.includes(this.search))
                     );
                     this.pagedTableData = filteredData.slice(start, end);
+                    // 根据结果数量更新分页器的总数
+                    this.$nextTick(() => {
+                        this.$refs.pagination && (this.$refs.pagination.total = filteredData.length);
+                    });
                 } else {
                     this.pagedTableData = this.tableData.slice(start, end);
                 }
