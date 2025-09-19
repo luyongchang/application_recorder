@@ -102,14 +102,8 @@
                     <br />
                     <el-form-item :label="'投递志愿 ' + (index + 1)" :label-width="formLabelWidth"
                         v-for="(job, index) in form.jobs">
-                        <el-select v-model="job.name" placeholder="请选择" allow-create filterable>
-                            <el-option label="后端开发" value="后端开发"></el-option>
-                            <el-option label="AI开发工程师" value="AI开发工程师"></el-option>
-                            <el-option label="服务端开发工程师" value="服务端开发工程师"></el-option>
-                            <el-option label="Java开发工程师" value="Java开发工程师"></el-option>
-                            <el-option label="软件工程师" value="软件工程师"></el-option>
-                            <el-option label="研发工程师" value="研发工程师"></el-option>
-                            <el-option label="全栈工程师" value="全栈工程师"></el-option>
+                        <el-select @focus="updateJobOptions" v-model="job.name" placeholder="请选择" allow-create filterable>
+                            <el-option v-for="(item, index) in jobsOptions" :key="item + index" :label="item" :value="item">
                         </el-select>
 
                         <!-- 当前状态名称和时间 -->
@@ -218,7 +212,8 @@
                 pagedTableData: [],
                 currentPage: 1,
                 pageSize: 10,
-                search: ''
+                search: '',
+                jobsOptions: ['后端开发', 'AI开发工程师', '服务端开发工程师', 'Java开发工程师', '软件工程师', '研发工程师', '全栈工程师']
             }
         },
         // 创建时读取json到tableData
@@ -364,6 +359,23 @@
             },
             addJobs() {
                 this.form.jobs.push({ name: '' });
+            },
+            updateJobOptions() {
+                // 把tableData中的所有job出现数量最高的20条记录和原始的jonOptions拼接,去重
+                const jobCount = {};
+                this.tableData.forEach((item) => {
+                    if (item.job) {
+                        if (jobCount[item.job]) {
+                            jobCount[item.job]++;
+                        } else {
+                            jobCount[item.job] = 1;
+                        }
+                    }
+                });
+                const sortedJobs = Object.keys(jobCount).sort((a, b) => jobCount[b] - jobCount[a]);
+                const topJobs = sortedJobs.slice(0, 20);
+                this.jobsOptions = Array.from(new Set([...this.jobsOptions, ...topJobs]));
+                
             },
             copyTableData() {
                 // 保存一份数据到LocalStorage
