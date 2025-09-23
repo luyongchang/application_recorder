@@ -74,7 +74,7 @@
                 <!-- 分页器,点击页码改变当前显示的tableData, 可调整每页条数-->
                 <el-pagination ref="pagination" style="margin-top: 20px;" background layout="prev, pager, next, sizes"
                     :page-sizes="[5, 10, 20, 50]" :page-size="pageSize" :current-page.sync="currentPage"
-                    :total="tableData.length" @size-change="pageSize = $event; loadPagedData()"
+                    :total="total" @size-change="pageSize = $event; loadPagedData()"
                     @current-change="loadPagedData">
 
             </el-tab-pane>
@@ -212,6 +212,7 @@
                 pagedTableData: [],
                 currentPage: 1,
                 pageSize: 10,
+                total:0,
                 search: '',
                 jobsOptions: ['后端开发', 'AI开发工程师', '服务端开发工程师', 'Java开发工程师', '软件工程师', '研发工程师', '全栈工程师']
             }
@@ -259,9 +260,7 @@
                     );
                     this.pagedTableData = filteredData.slice(start, end);
                     // 根据结果数量更新分页器的总数
-                    this.$nextTick(() => {
-                        this.$refs.pagination && (this.$refs.pagination.total = filteredData.length);
-                    });
+                    this.total = filteredData.length;
                 } else {
                     this.pagedTableData = this.tableData.slice(start, end);
                 }
