@@ -7,7 +7,7 @@
 <img width="1818" height="871" alt="image" src="https://github.com/user-attachments/assets/192e8da5-df9e-4a9d-a649-7d54e928636b" />
 
 ---
-数据存在localStorage中，优先读localStorage缓存数据，读不到读data.js中的myJson变量
+数据存在localStorage中，优先读localStorage缓存数据，读不到读data.js中的myJson变量(建议定期导出数据到data.js文件中，防止浏览器缓存被删除)
 
 ---
 我已经走远了，想要什么功能自己加吧
