@@ -33,11 +33,14 @@
 
             <el-tab-pane label="投递列表" name="second">
                 <el-button @click="dialogFormVisible = true">新增数据</el-button>
-                <el-button @click="copyTableData">复制Json数据</el-button>
+                <el-button @click="copyTableData">导出并复制Json数据</el-button>
 
                 <br />
                 <el-table :data="pagedTableData" style="width: 100%" stripe>
                     <el-table-column prop="id" label="序号" width="50">
+                        <template slot-scope="scope">
+                            {{ (currentPage - 1) * pageSize + scope.$index + 1 }}
+                        </template>
                     </el-table-column>
                     <el-table-column prop="date" label="日期" width="180" sortable>
                     </el-table-column>
@@ -67,15 +70,20 @@
                                 @click="showHistory(scope.$index, scope.row)">查看历史记录</el-button>
                             <!-- 修改按钮 -->
                             <el-button type="text" size="mini" @click="editRow(scope.$index, scope.row)">修改</el-button>
+                            <!-- 删除按钮 -->
+                            <el-popconfirm title="确定删除该记录吗？" confirm-button-text="删除" cancel-button-text="取消"
+                                @confirm="tableData.splice(tableData.findIndex(item => item.id === scope.row.id), 1)">
+                                <el-button slot="reference" type="text" size="mini" style="margin-left:10px;color: #F56C6C;">删除</el-button>
+                            </el-popconfirm>
+
                         </template>
                     </el-table-column>
                 </el-table>
 
                 <!-- 分页器,点击页码改变当前显示的tableData, 可调整每页条数-->
                 <el-pagination ref="pagination" style="margin-top: 20px;" background layout="prev, pager, next, sizes"
-                    :page-sizes="[5, 10, 20, 50]" :page-size="pageSize" :current-page.sync="currentPage"
-                    :total="total" @size-change="pageSize = $event; loadPagedData()"
-                    @current-change="loadPagedData">
+                    :page-sizes="[5, 10, 20, 50]" :page-size="pageSize" :current-page.sync="currentPage" :total="total"
+                    @size-change="pageSize = $event; loadPagedData()" @current-change="loadPagedData">
 
             </el-tab-pane>
         </el-tabs>
@@ -101,14 +109,16 @@
                     </div>
                     <br />
                     <el-form-item :label="'投递志愿 ' + (index + 1)" :label-width="formLabelWidth"
-                        v-for="(job, index) in form.jobs">
-                        <el-select @focus="updateJobOptions" v-model="job.name" placeholder="请选择" allow-create filterable>
-                            <el-option v-for="(item, index) in jobsOptions" :key="item + index" :label="item" :value="item">
+                        v-for="(job, index) in form.jobs" :key="job + index">
+                        <el-select @focus="updateJobOptions" v-model="job.name" placeholder="请选择" allow-create
+                            filterable>
+                            <el-option v-for="(item, index) in jobsOptions" :key="item + index" :label="item"
+                                :value="item">
                         </el-select>
 
                         <!-- 当前状态名称和时间 -->
                         <el-select v-model="form.currentStatus.statusName" placeholder="状态">
-                            <el-option v-for="item in form.statusHistory" :key="item.statusName"
+                            <el-option v-for="(item, index) in form.statusHistory" :key="item.statusName + index"
                                 :label="item.statusName" :value="item.statusName">
                             </el-option>
                         </el-select>
@@ -120,6 +130,12 @@
 
                         <!-- 使用内置会话框新增一个新的状态记录 -->
                         <el-button type="text" @click="innerVisible = true" style="margin-left: 10px;">新增状态</el-button>
+                        <!-- 当前志愿的某个删除状态记录,使用el-popconfirm气泡确认 -->
+                        <el-popconfirm v-if="form.statusHistory.length > 1" title="确定删除当前状态吗？" confirm-button-text="删除"
+                            cancel-button-text="取消" @confirm="deleteStatus">
+                            <el-button slot="reference" type="text"
+                                style="margin-left: 10px; color: #F56C6C;">删除当前状态</el-button>
+                        </el-popconfirm>
 
                         <!-- 增加状态日期时间 -->
 
@@ -212,7 +228,7 @@
                 pagedTableData: [],
                 currentPage: 1,
                 pageSize: 10,
-                total:0,
+                total: 0,
                 search: '',
                 jobsOptions: ['后端开发', 'AI开发工程师', '服务端开发工程师', 'Java开发工程师', '软件工程师', '研发工程师', '全栈工程师']
             }
@@ -248,7 +264,7 @@
                 //this.renderJourney();
             },
             loadPagedData() {
-                
+
                 const start = (this.currentPage - 1) * this.pageSize;
                 const end = start + this.pageSize;
                 if (this.search) {
@@ -304,7 +320,8 @@
                 this.form.jobs.forEach((job) => {
                     if (job.name) {
                         const newRecord = {
-                            id: this.tableData.length + 1,
+                            // id为最大id+1
+                            id: this.tableData.length > 0 ? Math.max(...this.tableData.map(item => item.id)) + 1 : 1,
                             date: newDate,
                             name: this.form.name,
                             job: job.name,
@@ -361,6 +378,16 @@
             addJobs() {
                 this.form.jobs.push({ name: '' });
             },
+            deleteStatus() {
+                // 删除当前状态
+                const statusIndex = this.form.statusHistory.findIndex(item => item.statusName == this.form.currentStatus.statusName && item.date == this.form.currentStatus.date);
+                if (statusIndex !== -1) {
+                    this.form.statusHistory.splice(statusIndex, 1);
+                    // 设置当前状态为最后一条记录
+                    this.form.currentStatus = this.form.statusHistory[this.form.statusHistory.length - 1];
+                }
+
+            },
             updateJobOptions() {
                 // 把tableData中的所有job出现数量最高的20条记录和原始的jonOptions拼接,去重
                 const jobCount = {};
@@ -376,7 +403,7 @@
                 const sortedJobs = Object.keys(jobCount).sort((a, b) => jobCount[b] - jobCount[a]);
                 const topJobs = sortedJobs.slice(0, 20);
                 this.jobsOptions = Array.from(new Set([...this.jobsOptions, ...topJobs]));
-                
+
             },
             copyTableData() {
                 // 保存一份数据到LocalStorage
@@ -393,17 +420,37 @@
                         type: 'error'
                     });
                 });
+                // 生成.js文件下载，把数据写入文件,文件名为data.js,内容为window.myJsonData = <数据>
+                const blob = new Blob([`window.myJsonData = ${dataStr};`], { type: 'application/javascript' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'data.js';
+                a.click();
+                URL.revokeObjectURL(url);
+
             },
             addStatus() {
                 // 往 this.form.statusHistory中新增一条记录,如果第一条记录的statusName为空则替换第一个
                 if (this.form.statusHistory.length == 1 && !this.form.statusHistory[0].statusName)
                     this.form.statusHistory.shift()
-
-                this.form.statusHistory.push({ statusName: this.newStatus.statusName, date: this.newStatus.date })
+                // statusName重复则替换原纪录，否则新增
+                const statusIndex = this.form.statusHistory.findIndex(item => item.statusName === this.newStatus.statusName);
+                // 不是投递简历状态则增加时间
+                if (statusIndex !== -1) {
+                    this.form.statusHistory[statusIndex].date = this.newStatus.date;
+                    // 解决历史遗留问题，删除其它重复的statusName
+                    for (let i = this.form.statusHistory.length - 1; i >= 0; i--) {
+                        if (i !== statusIndex && this.form.statusHistory[i].statusName === this.newStatus.statusName) {
+                            this.form.statusHistory.splice(i, 1);
+                        }
+                    }
+                } else {
+                    this.form.statusHistory.push({ statusName: this.newStatus.statusName, date: this.newStatus.date })
+                }
                 // 设置当前状态为最后一条记录
                 this.form.currentStatus = this.form.statusHistory[this.form.statusHistory.length - 1];
                 this.innerVisible = false;
-                // 重置form
             },
             showHistory(index, row) {
                 console.log(index, row);
